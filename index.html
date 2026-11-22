@@ -1,20 +1,42 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#f5f2eb"><meta name="description" content="Your personal daily intelligence magazine.">
-<title>THE EDIT · Your daily intelligence</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="THE EDIT: five important stories per topic, in one beautifully concise screen.">
+  <title>THE EDIT — Your intelligence, distilled.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="shell">
-<header class="masthead"><div class="overline"><span>YOUR DAILY PERSPECTIVE</span><span id="today"></span></div><div class="brandline"><a class="brand" href="#" aria-label="The Edit home">THE <em>EDIT.</em></a><div class="brand-sub">A little more informed,<br>every day.</div></div>
-<div class="nav-wrap"><nav id="nav" aria-label="Magazine sections"></nav><button class="search-toggle" id="searchToggle" aria-label="Search stories">⌕</button></div></header>
-<div class="utility"><div class="status" id="status"><span class="dot"></span> Getting your briefing…</div><div class="tools"><label class="sr" for="search">Search stories</label><input id="search" type="search" placeholder="Search today's stories…" hidden><button id="savedBtn" class="quiet-btn">♡ Saved <span id="savedCount">0</span></button><button id="refreshBtn" class="quiet-btn" title="Reload published feed data">↻ Refresh</button></div></div>
-<main id="content" aria-live="polite"><div class="loading">Preparing your front page…</div></main>
-<footer><div class="footer-brand">THE EDIT.</div><p>Made for curiosity. Headlines and short previews belong to their publishers. Click through for the full reporting.</p><p>No tracking • No account • Personal bookmarks stored in this browser.</p></footer>
-</div><script src="app.js" defer></script>
+  <div class="app-shell">
+    <header class="masthead">
+      <div class="brand-side">
+        <a class="brand" href="#" id="homeLink" aria-label="Show overall briefing">THE <span>EDIT.</span></a>
+        <div class="strapline">YOUR WORLD, <strong>EDITED.</strong></div>
+      </div>
+      <div class="issue-side"><span class="issue-label">THE DAILY INTELLIGENCE MAGAZINE</span><span id="today"></span></div>
+    </header>
+    <div class="burgundy-rule"></div>
+    <nav class="desktop-nav" id="nav" aria-label="News sections"></nav>
+    <div class="mobile-nav"><label for="categorySelect">SECTION</label><select id="categorySelect" aria-label="Choose news section"></select></div>
+    <div class="controlbar">
+      <span class="feed-status" id="status" role="status">Preparing today's edition…</span>
+      <div class="controls">
+        <label for="search" class="sr-only">Search headlines</label>
+        <input id="search" type="search" autocomplete="off" placeholder="Search headlines">
+        <button id="savedBtn" class="tool-btn" title="Show your saved stories" aria-pressed="false">♡ <span class="saved-label">Saved</span> <span id="savedCount">0</span></button>
+        <button id="refreshBtn" class="tool-btn" title="Reload the latest published edition">↻ <span class="refresh-label">Refresh</span></button>
+      </div>
+    </div>
+    <main class="main" id="content" aria-live="polite">
+      <div class="empty-state"><h1>Preparing your edition</h1><p>The latest stories will appear here.</p></div>
+    </main>
+    <div class="bottomline"><span>THE ESSENTIALS. NOTHING MORE.</span><span>Publisher previews · Read full stories at source</span></div>
+  </div>
+  <script src="app.js" defer></script>
 </body>
 </html>

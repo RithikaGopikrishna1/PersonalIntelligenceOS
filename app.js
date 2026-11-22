@@ -1,31 +1,122 @@
-const CATS=[['all','Front Page'],['world','World'],['india','India'],['uk-us','UK & US'],['business','Business'],['ai-tech','AI & Tech'],['startups','Startups'],['sports','Sports'],['science','Science'],['culture','Culture'],['learning','Daily Learning'],['women','Women & Design']];
-const escapes=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const safeUrl=s=>/^https?:\/\//i.test(s||'')?escapes(s):'#';
-const label=id=>CATS.find(c=>c[0]===id)?.[1]||id;
-const dateText=s=>{if(!s)return 'Recent';const d=new Date(s);return Number.isNaN(d.getTime())?'Recent':new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short'}).format(d)};
-let articles=[],active='all',savedOnly=false,search='',updatedAt=null;
-let saved=new Set();try{saved=new Set(JSON.parse(localStorage.getItem('edit-saved')||'[]'))}catch(e){}
-const root=document.getElementById('content'),nav=document.getElementById('nav');
-document.getElementById('today').textContent=new Intl.DateTimeFormat('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date());
-nav.innerHTML=CATS.map(([id,name])=>`<button class="tab ${id==='all'?'active':''}" data-tab="${id}">${escapes(name)}</button>`).join('');
-nav.addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;active=b.dataset.tab;savedOnly=false;document.getElementById('savedBtn').classList.remove('active');render();window.scrollTo({top:0,behavior:'smooth'})});
-document.getElementById('searchToggle').onclick=()=>{const el=document.getElementById('search');el.hidden=!el.hidden;if(!el.hidden)el.focus();else{el.value='';search='';render()}};
-document.getElementById('search').oninput=e=>{search=e.target.value.trim().toLowerCase();render()};
-document.getElementById('savedBtn').onclick=()=>{savedOnly=!savedOnly;render()};
-document.getElementById('refreshBtn').onclick=()=>location.reload();
-root.addEventListener('click',e=>{const btn=e.target.closest('[data-save]');if(!btn)return;const id=btn.dataset.save;if(saved.has(id))saved.delete(id);else saved.add(id);try{localStorage.setItem('edit-saved',JSON.stringify([...saved]))}catch(e){}render()});
-const idOf=a=>a.url;
-const link=a=>safeUrl(a.url);
-function imageEl(a,isHero=false){if(a.image)return `<img class="${isHero?'image-bg':'thumbnail'}" src="${safeUrl(a.image)}" loading="lazy" alt="" onerror="this.style.display='none'">`;return isHero?'':`<div class="visual-placeholder">${escapes(label(a.category))} / THE EDIT</div>`}
-function hero(a,main=false){if(!a)return '';return `<article class="${main?'feature':'side-feature'}">${imageEl(a,true)}<div class="feature-content"><span class="category-pill">${escapes(label(a.category))} · ${escapes(a.source)}</span><a href="${link(a)}" target="_blank" rel="noopener noreferrer">${main?`<h2>${escapes(a.title)}</h2>`:`<h3>${escapes(a.title)}</h3>`}</a><div class="source-line">${dateText(a.date)} · Read at source ↗</div></div></article>`}
-function card(a){const on=saved.has(idOf(a));return `<article class="story-card">${imageEl(a)}<div class="section-kicker">${escapes(label(a.category))}</div><h3><a target="_blank" rel="noopener noreferrer" href="${link(a)}">${escapes(a.title)}</a></h3><p class="summary">${escapes(a.summary||'A new story from this source. Open the article for details.')}</p><div class="source-line">${escapes(a.source)} · ${dateText(a.date)}</div><div class="story-actions"><a href="${link(a)}" target="_blank" rel="noopener noreferrer">Read story ↗</a><button class="save-btn" aria-label="${on?'Remove bookmark':'Bookmark story'}" aria-pressed="${on}" data-save="${escapes(idOf(a))}">${on?'♥':'♡'}</button></div></article>`}
-function block(title,data,max=6){if(!data.length)return '';return `<section class="section-area"><div class="section-title"><h2>${escapes(title)}</h2><small>${data.length} stories</small></div><div class="article-grid">${data.slice(0,max).map(card).join('')}</div></section>`}
-function render(){nav.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',!savedOnly&&x.dataset.tab===active));document.getElementById('savedCount').textContent=saved.size;const term=a=>(a.title+' '+a.summary+' '+a.source).toLowerCase().includes(search);let a=articles.filter(x=>(active==='all'||x.category===active)&&(!savedOnly||saved.has(idOf(x)))&&term(x));const heading=savedOnly?'Your reading list':active==='all'?'The world, in perspective.':label(active)+' in focus';if(!a.length){root.innerHTML=`<div class="section-kicker">THE DAILY EDIT</div><h1 class="hero-heading">${escapes(heading)}</h1><div class="empty"><h2>${articles.length?'Nothing here yet.':'Your first edition is being prepared.'}</h2><p>${articles.length?'Try another category or search. Saved stories live only in this browser.':'Once GitHub Actions runs, this page will fill with fresh headlines and previews. The refresh workflow runs automatically after you enable Pages.'}</p></div>`;return}
- if(active!=='all'||savedOnly||search){root.innerHTML=`<div class="section-kicker">CURATED STORIES</div><h1 class="hero-heading">${escapes(heading)}</h1>${block(savedOnly?'Bookmarked reads':active==='all'?'Matching stories':label(active),a,60)}`;return}
- // Featured stories come from different sections to add variety.
- let features=[];for(const x of a){if(!features.some(y=>y.category===x.category))features.push(x);if(features.length===3)break}if(features.length<3)features=a.slice(0,3);
- const excluded=new Set(features.map(x=>x.url));const rest=a.filter(x=>!excluded.has(x.url));
- root.innerHTML=`<div class="section-kicker">A DAILY INTELLIGENCE MAGAZINE</div><h1 class="hero-heading">The world, in perspective.</h1><div class="hero-grid">${hero(features[0],true)}<div class="feature-wrap">${hero(features[1])}${hero(features[2])}</div></div>${block('The latest stories',rest.slice(0,9),9)}${block('Ideas, innovation & discovery',rest.filter(x=>['ai-tech','startups','science','women'].includes(x.category)),9)}${block('Culture, sport & curiosity',rest.filter(x=>['sports','culture','learning'].includes(x.category)),9)}`;
+/* THE EDIT — one-screen news magazine. No AI, tracking, or paid services. */
+const CATS = [
+  ['all','Overall Top 3'],['world','World'],['india','India'],['uk-us','UK & US'],
+  ['business','Business'],['ai-tech','AI & Tech'],['startups','Startups'],
+  ['sports','Sports'],['science','Science'],['culture','Culture'],
+  ['learning','Daily Learning'],['women','Women & Design']
+];
+const LABEL = Object.fromEntries(CATS);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeUrl = s => /^https?:\/\//i.test(s || '') ? esc(s) : '#';
+const formatDate = s => { const d=new Date(s);return !s||isNaN(d.getTime())?'Recent':new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short'}).format(d); };
+let articles=[], active='all', savedOnly=false, query='', refreshedAt=null;
+let saved = new Set();
+try { saved = new Set(JSON.parse(localStorage.getItem('edit-saved') || '[]')); } catch {}
+
+const today = new Intl.DateTimeFormat('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date());
+$('today').textContent=today;
+$('nav').innerHTML=CATS.map(([key,label])=>`<button class="tab" data-tab="${key}" type="button">${esc(label)}</button>`).join('');
+$('categorySelect').innerHTML=CATS.map(([key,label])=>`<option value="${key}">${esc(label)}</option>`).join('');
+$('nav').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)choose(b.dataset.tab);});
+$('categorySelect').addEventListener('change',e=>choose(e.target.value));
+$('homeLink').addEventListener('click',e=>{e.preventDefault();choose('all');});
+$('search').addEventListener('input',e=>{query=e.target.value.trim().toLowerCase(); savedOnly=false;render();});
+$('savedBtn').addEventListener('click',()=>{savedOnly=!savedOnly;render();});
+$('refreshBtn').addEventListener('click',()=>load());
+$('content').addEventListener('click',e=>{
+  const b=e.target.closest('[data-save]');if(!b)return;
+  const url=b.getAttribute('data-save');
+  if(saved.has(url))saved.delete(url);else saved.add(url);
+  try{localStorage.setItem('edit-saved',JSON.stringify([...saved]));}catch{}
+  render();
+});
+function choose(cat){active=cat;savedOnly=false;query='';$('search').value='';render();}
+
+/* A transparent, heuristic ranking — useful curation, not a claim of objective importance. */
+const MAJOR = /\b(election|president|prime minister|government|parliament|supreme court|court ruling|war|ceasefire|peace deal|conflict|attack|earthquake|flood|climate summit|treaty|trade deal|tariff|sanctions|central bank|interest rates|inflation|budget|economic growth|breakthrough|discovery|launch|regulation|policy|agreement|championship|world cup|final|record|funding|acquisition|merger|research|study|rights|law|reform|crisis|resigns|wins|announces|approval)\b/i;
+const LOW_VALUE = /\b(quiz|shopping guide|review:|opinion:|what to watch|weekly roundup|live updates|live blog|newsletter|how to buy|deals? on|best gifts)\b/i;
+const STOP = new Set('the a an and or of to on in for from with at as is are by after over under this that new has have it its says said about how why what who when will you your their his her been into amid than more latest'.split(' '));
+function words(t){return new Set(String(t||'').toLowerCase().match(/[a-z]{4,}/g)?.filter(w=>!STOP.has(w))||[]);}
+function similarity(a,b){let A=words(a),B=words(b);if(!A.size||!B.size)return 0;let common=0;for(let w of A)if(B.has(w))common++;return common/Math.min(A.size,B.size);}
+function score(a,whole){
+  const age=a.date?(Date.now()-new Date(a.date).getTime())/3600000:168;
+  const freshness=Number.isFinite(age)?Math.max(0,52-Math.max(0,age)*0.28):5;
+  let score=freshness;
+  if(MAJOR.test(a.title)) score+=9;
+  if(LOW_VALUE.test(a.title)) score-=18;
+  if(a.summary && a.summary.length>65) score+=2;
+  // Other publishers discussing a substantially similar headline are a modest signal.
+  let matches=0;
+  for(const b of whole){
+    if(b===a || b.source===a.source || b.category!==a.category)continue;
+    if(similarity(a.title,b.title)>=0.58){matches++;if(matches>=2)break;}
+  }
+  score+=matches*8;
+  return score;
 }
-async function load(){try{let response=await fetch('data.json?ts='+Date.now(),{cache:'no-store'});if(!response.ok)throw Error('Data request failed');const data=await response.json();articles=(data.articles||[]).filter(a=>a&&a.url&&a.title&&CATS.some(c=>c[0]===a.category));updatedAt=data.updatedAt;document.getElementById('status').innerHTML=`<span class="dot"></span>${articles.length} stories · ${updatedAt?`Updated ${new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'UTC'}).format(new Date(updatedAt))} UTC`:'Awaiting first refresh'}`;render()}catch(e){document.getElementById('status').textContent='Could not load news data';root.innerHTML='<div class="empty"><h2>Unable to load the edition.</h2><p>Open this website over HTTP(S) rather than double-clicking the HTML file. After publishing to GitHub Pages, refresh the page.</p></div>'}}
+function ranked(list){return list.map(a=>({a,points:score(a,list)})).sort((x,y)=>y.points-x.points || (y.a.date||'').localeCompare(x.a.date||'')).map(x=>x.a);}
+function pickOverall(items){
+  const r=ranked(items),picked=[],categories=new Set();
+  for(const x of r){if(categories.has(x.category))continue;picked.push(x);categories.add(x.category);if(picked.length===3)return picked;}
+  for(const x of r){if(!picked.includes(x))picked.push(x);if(picked.length===3)break;}
+  return picked;
+}
+function quote(a){let text=(a.summary||'').trim();if(!text)return 'Open the original reporting for the full details.';return text;}
+function img(a,number){
+  const label=esc(LABEL[a.category]||a.category);
+  return a.image && /^https:\/\//.test(a.image)
+    ? `<div class="image-box"><img src="${safeUrl(a.image)}" alt="" loading="lazy" onerror="this.closest('.image-box').classList.add('img-error')"><span class="big-number" aria-hidden="true">${number}</span></div>`
+    : `<div class="image-box no-image"><span class="abstract-lines" aria-hidden="true"></span><span class="big-number" aria-hidden="true">${number}</span><span class="placeholder-name">${label}</span></div>`;
+}
+function card(a,index,kind){
+  const bookmarked=saved.has(a.url);
+  return `<article class="story-card ${kind}">
+    ${img(a,String(index+1).padStart(2,'0'))}
+    <div class="card-text">
+      <div class="eyebrow"><span>${esc(LABEL[a.category]||'News')}</span><span>${esc(a.source||'Source')} · ${formatDate(a.date)}</span></div>
+      <a class="story-link" href="${safeUrl(a.url)}" target="_blank" rel="noopener noreferrer"><h2>${esc(a.title)}</h2></a>
+      <p class="story-summary">${esc(quote(a))}</p>
+      <div class="card-foot"><span>READ STORY ↗</span><button type="button" class="bookmark" data-save="${esc(a.url)}" title="${bookmarked?'Remove saved story':'Save story'}" aria-label="${bookmarked?'Remove saved story':'Save story'}" aria-pressed="${bookmarked}">${bookmarked?'♥':'♡'}</button></div>
+    </div>
+  </article>`;
+}
+function render(){
+  $('nav').querySelectorAll('[data-tab]').forEach(b=>{const on=!savedOnly&&b.dataset.tab===active;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on));});
+  $('categorySelect').value=active;
+  $('savedBtn').setAttribute('aria-pressed',String(savedOnly));
+  $('savedBtn').classList.toggle('active',savedOnly);
+  $('savedCount').textContent=saved.size;
+  let filtered=articles.filter(a=>(active==='all'||a.category===active)&&(!savedOnly||saved.has(a.url))&&(`${a.title} ${a.summary} ${a.source}`).toLowerCase().includes(query));
+  const isOverall=active==='all'&&!savedOnly&&!query;
+  const selection=(isOverall?pickOverall(filtered):ranked(filtered).slice(0,5));
+  let heading=savedOnly?'Saved Stories':query?'Search Results':isOverall?'The three stories to know.':LABEL[active];
+  let kicker=savedOnly?'YOUR READING LIST':query?'YOUR EDITION, FILTERED':isOverall?'OVERALL · TOP THREE':`${LABEL[active].toUpperCase()} · TOP FIVE`;
+  let subtitle=isOverall?'Three highlights selected across different topics.':savedOnly?'Your reading list, kept in this browser.':'The key recent stories in this section.';
+  if(!selection.length){
+    $('content').innerHTML=`<div class="section-head"><div><div class="kicker">${esc(kicker)}</div><h1>${esc(heading)}</h1></div></div><div class="empty-state"><h2>${articles.length?'No matching stories.':'Your first edition is on its way.'}</h2><p>${articles.length?'Try another section or clear your search.':'Run your GitHub news-refresh workflow to publish the first feed update.'}</p></div>`;
+    return;
+  }
+  $('content').innerHTML=`<div class="section-head"><div class="heading-block"><div class="kicker">${esc(kicker)}</div><h1>${esc(heading)}</h1></div><div class="section-note">${esc(subtitle)}</div></div><div class="story-layout count-${selection.length} ${isOverall?'overall':'category'}">${selection.map((a,i)=>card(a,i,i===0?'lead':'support')).join('')}</div>`;
+}
+async function load(){
+  $('refreshBtn').disabled=true;
+  try{
+    const response=await fetch('data.json?nocache='+Date.now(),{cache:'no-store'});
+    if(!response.ok)throw new Error('Feed response '+response.status);
+    const json=await response.json();
+    const seen=new Set();
+    articles=(Array.isArray(json.articles)?json.articles:[]).filter(a=>{
+      if(!a||!a.title||!a.url||!LABEL[a.category]||!/^https?:\/\//.test(a.url)||seen.has(a.url))return false;
+      seen.add(a.url);return true;
+    });
+    refreshedAt=json.updatedAt;
+    const updated=refreshedAt?new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'UTC'}).format(new Date(refreshedAt))+' UTC':'Waiting for first feed update';
+    $('status').innerHTML=`<span class="status-dot"></span><span class="status-label">${articles.length?'Edition refreshed':'Awaiting stories'}</span> <span class="status-time">· ${esc(updated)}</span>`;
+    render();
+  } catch (e){
+    $('status').textContent='Unable to load the edition';
+    $('content').innerHTML='<div class="empty-state"><h2>Unable to load the news.</h2><p>Refresh this page after your GitHub workflow publishes updated data.</p></div>';
+  } finally {$('refreshBtn').disabled=false;}
+}
 load();
