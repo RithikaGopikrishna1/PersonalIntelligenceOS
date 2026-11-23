@@ -24,18 +24,41 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
 
       - name: Refresh RSS feeds
+        shell: bash
         run: |
+          set -euo pipefail
           if [ -f scripts/update.py ]; then
             python scripts/update.py
           elif [ -f update.py ]; then
-            python update.py
+            # update.py expects to be in scripts/ so it writes data.json
+            # into the repository rather than its parent directory.
+            mkdir -p scripts
+            cp update.py scripts/update.py
+            python scripts/update.py
           else
             echo 'ERROR: RSS updater not found' >&2
             exit 1
           fi
+
+      - name: Verify news data before publishing
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('data.json')
+          if not p.exists():
+              raise SystemExit('ERROR: data.json is missing from the repository root')
+          data = json.loads(p.read_text(encoding='utf-8'))
+          stories = data.get('articles', [])
+          updated = data.get('updatedAt')
+          print(f'Publishing {len(stories)} stories; updatedAt={updated}')
+          if not stories or not updated:
+              raise SystemExit('ERROR: data.json is empty or outdated; refusing to publish')
+          PY
 
       - name: Prepare AI daily briefs (optional)
         env:
