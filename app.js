@@ -1,4 +1,4 @@
-/* THE EDIT — one-screen news magazine. No AI, tracking, or paid services. */
+/* THE EDIT — one-screen news magazine with optional server-generated AI briefs. */
 const CATS = [
   ['all','Overall Top 3'],['world','World'],['india','India'],['uk-us','UK & US'],
   ['business','Business'],['ai-tech','AI & Tech'],['startups','Startups'],
@@ -10,7 +10,7 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const safeUrl = s => /^https?:\/\//i.test(s || '') ? esc(s) : '#';
 const formatDate = s => { const d=new Date(s);return !s||isNaN(d.getTime())?'Recent':new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short'}).format(d); };
-let articles=[], active='all', savedOnly=false, query='', refreshedAt=null;
+let articles=[], active='all', savedOnly=false, query='', refreshedAt=null, curated=null, aiEnabled=false;
 let saved = new Set();
 try { saved = new Set(JSON.parse(localStorage.getItem('edit-saved') || '[]')); } catch {}
 
@@ -62,7 +62,7 @@ function pickOverall(items){
   for(const x of r){if(!picked.includes(x))picked.push(x);if(picked.length===3)break;}
   return picked;
 }
-function quote(a){let text=(a.summary||'').trim();if(!text)return 'Open the original reporting for the full details.';return text;}
+function quote(a){let text=(a.aiSummary||a.summary||'').trim();if(!text)return 'Open the original reporting for the full details.';return text;}
 function img(a,number){
   const label=esc(LABEL[a.category]||a.category);
   return a.image && /^https:\/\//.test(a.image)
@@ -76,10 +76,17 @@ function card(a,index,kind){
     <div class="card-text">
       <div class="eyebrow"><span>${esc(LABEL[a.category]||'News')}</span><span>${esc(a.source||'Source')} · ${formatDate(a.date)}</span></div>
       <a class="story-link" href="${safeUrl(a.url)}" target="_blank" rel="noopener noreferrer"><h2>${esc(a.title)}</h2></a>
-      <p class="story-summary">${esc(quote(a))}</p>
+      <p class="story-summary" title="${a.aiSummary?'AI-generated from publisher feed metadata':'Publisher feed preview'}">${esc(quote(a))}</p>
       <div class="card-foot"><span>READ STORY ↗</span><button type="button" class="bookmark" data-save="${esc(a.url)}" title="${bookmarked?'Remove saved story':'Save story'}" aria-label="${bookmarked?'Remove saved story':'Save story'}" aria-pressed="${bookmarked}">${bookmarked?'♥':'♡'}</button></div>
     </div>
   </article>`;
+}
+function chooseCurated(key, candidates, limit){
+  const urls = key==='all' ? curated?.overall : curated?.byCategory?.[key];
+  if(!Array.isArray(urls) || !urls.length)return null;
+  const allowed=new Map(candidates.map(a=>[a.url,a]));
+  const picked=urls.map(url=>allowed.get(url)).filter(Boolean).slice(0,limit);
+  return picked.length?picked:null;
 }
 function render(){
   $('nav').querySelectorAll('[data-tab]').forEach(b=>{const on=!savedOnly&&b.dataset.tab===active;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on));});
@@ -87,9 +94,11 @@ function render(){
   $('savedBtn').setAttribute('aria-pressed',String(savedOnly));
   $('savedBtn').classList.toggle('active',savedOnly);
   $('savedCount').textContent=saved.size;
-  let filtered=articles.filter(a=>(active==='all'||a.category===active)&&(!savedOnly||saved.has(a.url))&&(`${a.title} ${a.summary} ${a.source}`).toLowerCase().includes(query));
+  let filtered=articles.filter(a=>(active==='all'||a.category===active)&&(!savedOnly||saved.has(a.url))&&(`${a.title} ${a.summary} ${a.aiSummary||''} ${a.source}`).toLowerCase().includes(query));
   const isOverall=active==='all'&&!savedOnly&&!query;
-  const selection=(isOverall?pickOverall(filtered):ranked(filtered).slice(0,5));
+  const canUseCurated=!savedOnly&&!query;
+  const selection=(canUseCurated&&chooseCurated(active,filtered,isOverall?3:5))
+    || (isOverall?pickOverall(filtered):ranked(filtered).slice(0,5));
   let heading=savedOnly?'Saved Stories':query?'Search Results':isOverall?'The three stories to know.':LABEL[active];
   let kicker=savedOnly?'YOUR READING LIST':query?'YOUR EDITION, FILTERED':isOverall?'OVERALL · TOP THREE':`${LABEL[active].toUpperCase()} · TOP FIVE`;
   let subtitle=isOverall?'Three highlights selected across different topics.':savedOnly?'Your reading list, kept in this browser.':'The key recent stories in this section.';
@@ -106,9 +115,20 @@ async function load(){
     if(!response.ok)throw new Error('Feed response '+response.status);
     const json=await response.json();
     const seen=new Set();
+    const brief=json.aiBrief||{};
+    curated=json.curation||null;
+    const summaries=brief.summaries||{};
+    aiEnabled=Boolean(brief.topLine);
+    $('briefText').textContent=brief.topLine
+      || 'Your essential headlines, curated for today. Add a Gemini API key to enable an automatic AI briefing.';
+    $('aiBrief').classList.toggle('is-ai',aiEnabled);
     articles=(Array.isArray(json.articles)?json.articles:[]).filter(a=>{
       if(!a||!a.title||!a.url||!LABEL[a.category]||!/^https?:\/\//.test(a.url)||seen.has(a.url))return false;
       seen.add(a.url);return true;
+    });
+    articles.forEach(a=>{
+      const aiText=summaries[a.url];
+      a.aiSummary=typeof aiText==='string'?aiText:'';
     });
     refreshedAt=json.updatedAt;
     const updated=refreshedAt?new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'UTC'}).format(new Date(refreshedAt))+' UTC':'Waiting for first feed update';
