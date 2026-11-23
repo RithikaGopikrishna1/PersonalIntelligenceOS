@@ -1,4 +1,3 @@
-
 name: Refresh feeds and publish dashboard
 
 on:
@@ -23,23 +22,30 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Generate latest news
+      - name: Refresh RSS feeds
         run: |
-          mkdir -p scripts
-          if [ -f update.py ]; then
+          if [ -f scripts/update.py ]; then
+            python scripts/update.py
+          elif [ -f update.py ]; then
+            mkdir -p scripts
             mv update.py scripts/update.py
+            python scripts/update.py
+          else
+            echo 'ERROR: RSS updater not found' >&2
+            exit 1
           fi
-          python scripts/update.py
+
+      - name: Prepare AI daily briefs (optional)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python ai_summarize.py
 
       - uses: actions/configure-pages@v5
-
       - uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
-
       - id: deployment
         uses: actions/deploy-pages@v4
